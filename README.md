@@ -1,195 +1,260 @@
 # TaskLoop
 
-Учебный REST-сервис: **Spring Boot 3.3** + **PostgreSQL 16** + **Flyway**. Требуется **JDK 17+** для сборки (проверено с 17). Цель — типовой «скелет» CRUD с заделом под эксплуатацию: **OpenAPI**, **Actuator + Prometheus**, **Docker**, **лимиты и метрики** для вызова локальной LM Studio.
+<div align="center">
 
-## Быстрые ссылки (локально, порт по умолчанию 8080)
+**Доски, дерево задач и ИИ-советы локально — без облачных API-ключей**
 
-- UI: [http://localhost:8080/](http://localhost:8080/)
-- OpenAPI (Swagger UI): [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
-- Actuator health: [http://localhost:8080/actuator/health](http://localhost:8080/actuator/health)
-- Метрики Prometheus: [http://localhost:8080/actuator/prometheus](http://localhost:8080/actuator/prometheus)
+[Spring Boot 3.3](https://spring.io/projects/spring-boot) · Java 17 · PostgreSQL 16 · Flyway · OpenAPI · Prometheus
+
+</div>
+
+---
+
+## Зачем это нужно
+
+**TaskLoop** — это бэкенд + веб-UI для личного или учебного управления задачами с упором на **структуру** (доски + **дерево подзадач**) и на **осмысленные советы от локальной LLM** через [LM Studio](https://lmstudio.ai/) (OpenAI-compatible API). Вы держите данные у себя (PostgreSQL), не платите за облачные вызовы моделей и полностью контролируете контекст, который видит модель.
+
+| Для кого | Что получаете |
+|----------|----------------|
+| **Разработчик / учёба** | Готовый «продуктовый» каркас: REST API `/api/v1`, миграции, валидация, обработка ошибок, лимиты на дорогие вызовы, метрики. |
+| **Пользователь UI** | Одна страница в браузере: дерево досок и задач, отметка выполнения, запрос совета, разбор ответа модели в **новую доску** с подзадачами. |
+| **Оператор локальной модели** | Настраиваемые таймауты, лимиты токенов и размера контекста; rate limit только на `POST .../advice`; Prometheus-метрики по вызовам LM Studio. |
+
+---
+
+## Возможности
+
+### Доски и задачи
+
+- Несколько **досок** с созданием, переименованием и удалением (с защитой системной доски «По умолчанию»).
+- **Иерархия задач** до **16 уровней** вложенности: корневая задача и подзадачи на одной доске; целостность `parent` ↔ `board` проверяется на сервере.
+- **Два представления**: плоский **пагинированный** список по доске и **дерево** (`GET .../boards/{id}/tasks/tree`) для UI и интеграций.
+- Поля задачи: заголовок, `done`, время создания, опционально текст **совета** и время получения (`advice` / `advice_at`), порядок строк при разборе совета (`line_order`).
+
+### ИИ: совет и «доска из совета»
+
+- **`POST /api/v1/tasks/{id}/advice`** — запрос к LM Studio: сервер сам собирает **контекст** — название доски, **цепочку заголовков предков** от корня до текущей задачи и саму задачу. Переполнение контекста обрабатывается настройкой `max-advice-context-chars` (сначала укорачивается «верх» цепочки).
+- **`POST .../spawn-board-from-advice`** — из уже сохранённого текста совета создаётся **новая доска** и набор задач: парсинг нумерованных пунктов и маркированных списков (см. `AdviceLineParser`), порядок сохраняется.
+
+### Надёжность и наблюдаемость
+
+- **Rate limiting** только на эндпоинт совета (по умолчанию 30 запросов / 60 с на IP или `X-Forwarded-For`).
+- **Micrometer / Prometheus**: латентность и ошибки вызовов LM Studio, счётчик успешных советов (`taskloop.advice.*`).
+- **Correlation ID**: заголовок `X-Correlation-Id` пробрасывается в ответ и в логи (MDC).
+- **Actuator**: health (в т.ч. liveness/readiness), метрики Prometheus.
+- **OpenAPI 3** + Swagger UI для интерактивных запросов.
+
+### Доставка
+
+- **Docker Compose**: только БД или приложение + БД; для LM Studio на хосте — `host.docker.internal`.
+- **GitHub Actions** (в монорепозитории): `mvn verify` при изменениях в `taskloop-api/`.
+
+---
+
+## Стек
+
+| Слой | Технологии |
+|------|------------|
+| Runtime | Java 17, Spring Boot 3.3 |
+| Данные | Spring Data JPA, PostgreSQL 16, Flyway |
+| API | REST `/api/v1`, springdoc-openapi, Bean Validation |
+| LLM | HTTP-клиент к OpenAI-compatible API (LM Studio) |
+| Защита от злоупотреблений | bucket4j на `/tasks/*/advice` |
+| UI | Статическая страница `static/index.html` (без отдельного фронтенд-сборщика) |
+
+---
+
+## Быстрые ссылки (localhost, порт по умолчанию **8080**)
+
+| Что | URL |
+|-----|-----|
+| Веб-интерфейс | [http://localhost:8080/](http://localhost:8080/) |
+| Swagger UI | [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) |
+| OpenAPI JSON | [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs) |
+| Health | [http://localhost:8080/actuator/health](http://localhost:8080/actuator/health) |
+| Prometheus | [http://localhost:8080/actuator/prometheus](http://localhost:8080/actuator/prometheus) |
+
+---
 
 ## Запуск
 
-### Вариант 1: только PostgreSQL в Docker, приложение локально
+### Предварительно
 
-1. `docker compose up -d db`
-2. **`./mvnw spring-boot:run`** (macOS/Linux) или **`.\mvnw.cmd spring-boot:run`** в PowerShell из каталога проекта. В PowerShell нельзя писать просто `mvnw.cmd` — нужен префикс `.\` для запуска из текущей папки.
+- **JDK 17+**
+- **PostgreSQL** (или только Docker для БД)
 
-3. В браузере: [http://localhost:8080/](http://localhost:8080/) — **дерево досок и задач слева**, выбор доски, список с отступами по вложенности, добавление **корневой** или **подзадачи** (задача выбрана в дереве), «Совет» с серверным контекстом доски и цепочки родителей, «Доска из совета».
+Скопируйте **`.env.example` → `.env`** в каталоге `taskloop-api`. Минимум для советов: задайте **`LMSTUDIO_MODEL`** так же, как идентификатор модели в LM Studio. Переменные окружения ОС имеют приоритет над `.env`.
 
-Скопируйте **`.env.example` → `.env`** в каталоге `taskloop-api` и заполните хотя бы `LMSTUDIO_MODEL` (остальное можно не трогать для значений по умолчанию). При старте приложения переменные из `.env` попадают в конфигурацию Spring; **реальные переменные окружения ОС имеют приоритет** над `.env`.
+### Вариант A: только PostgreSQL в Docker, приложение локально
 
-### Вариант 2: приложение + БД в Docker
+```bash
+docker compose up -d db
+```
 
-Из каталога `taskloop-api`:
+```bash
+# macOS / Linux
+./mvnw spring-boot:run
+
+# Windows PowerShell (нужен префикс .\)
+.\mvnw.cmd spring-boot:run
+```
+
+Откройте UI: [http://localhost:8080/](http://localhost:8080/) — слева дерево досок и задач, справа работа с выбранной доской, кнопки **Совет** и **Доска из совета** при наличии текста совета.
+
+### Вариант B: приложение и БД в Docker
 
 ```bash
 docker compose up -d --build
 ```
 
-- Приложение слушает **8080** на хосте.
-- Для LM Studio на хосте по умолчанию используется `LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1` (можно переопределить переменной окружения при `docker compose up`).
+Приложение на порту **8080**. Для LM Studio на машине-хосте по умолчанию удобно:  
+`LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1`.
 
-### Порт 8080 уже занят
+### Порт занят
 
-Сообщение `Port 8080 was already in use` значит, что порт занят другим процессом (часто это не остановленный прошлый запуск приложения).
-
-**Вариант A — освободить 8080 (PowerShell):**
-
-```powershell
-Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue | Select-Object OwningProcess
-# по PID из вывода:
-Stop-Process -Id <PID> -Force
-```
-
-Либо через `netstat -ano | findstr :8080` и `taskkill /PID <pid> /F`.
-
-**Вариант B — запустить на другом порту** (по умолчанию в конфиге `8080`, можно задать `SERVER_PORT`):
+Освободить **8080** или задать другой порт:
 
 ```powershell
 $env:SERVER_PORT=8081
 .\mvnw.cmd spring-boot:run
 ```
 
-После этого UI: http://localhost:8081/ — в примерах `curl` ниже замените `8080` на ваш порт.
+Во всех примерах ниже замените `8080` на ваш порт.
 
-## Доски (`boards`)
+---
 
-Базовый путь: **`/api/v1/boards`**.
+## REST API (кратко)
 
-| Метод | Описание |
-|-------|----------|
-| `GET /api/v1/boards` | Список досок (`id`, `title`, `createdAt`, `taskCount`). |
-| `POST /api/v1/boards` | Создать доску: тело `{"title":"…"}`. |
-| `PATCH /api/v1/boards/{id}` | Переименовать: `{"title":"…"}`. |
-| `DELETE /api/v1/boards/{id}` | Удалить доску и все её задачи (**204**). Удаление **дефолтной** доски (`00000000-0000-4000-8000-000000000001`) — **409 Conflict**. |
-| `GET /api/v1/boards/{boardId}/tasks/tree` | Дерево задач доски: корни и вложенные узлы с полями как у задачи + **`children`** (массив узлов). На каждом уровне сортировка по **`createdAt` от новых к старым**. **404**, если доски нет. |
+Префикс версии: **`/api/v1`**. Ошибки — JSON с полем `detail` (и типичные коды HTTP).
 
-При первом запуске миграции создаётся доска **«По умолчанию»** с фиксированным UUID выше.
+### Доски
 
-Задачи поддерживают **иерархию**: колонка `parent_task_id` (FK на другую задачу той же доски, **ON DELETE CASCADE** — удаление родителя удаляет поддерево). Максимальная глубина вложенности: **16** уровней от корня.
+| Метод | Путь | Описание |
+|--------|------|----------|
+| `GET` | `/boards` | Список досок: `id`, `title`, `createdAt`, `taskCount` |
+| `POST` | `/boards` | Создать: `{"title":"..."}` → **201** |
+| `PATCH` | `/boards/{id}` | Переименовать: `{"title":"..."}` |
+| `DELETE` | `/boards/{id}` | Удалить доску и все задачи (**204**). Системная доска по умолчанию — **409** |
+| `GET` | `/boards/{boardId}/tasks/tree` | Дерево задач: узлы как у задачи + **`children`**, сортировка по уровням по **`createdAt`** (новые выше). Нет доски — **404** |
 
-## API версии и пагинация для задач
+При первом применении миграций создаётся доска **«По умолчанию»** с фиксированным UUID `00000000-0000-4000-8000-000000000001`.
 
-Базовый путь: **`/api/v1/tasks`**. Список задач **привязан к доске**: обязательный query-параметр **`boardId`** (UUID).
+### Задачи
 
-Список задач возвращает страницу:
+| Метод | Путь | Описание |
+|--------|------|----------|
+| `GET` | `/tasks?boardId=<UUID>&page=&size=&sort=` | Плоский список с пагинацией; **`boardId` обязателен**, иначе **400** |
+| `POST` | `/tasks` | Создать: `title`, `boardId`, опционально `parentTaskId` (родитель на той же доске) |
+| `PATCH` | `/tasks/{id}/done` | Тело: `{"done": true}` или `{"done": false}` |
+| `POST` | `/tasks/{id}/advice` | Запрос совета к LM Studio; ответ сохраняется в задаче (**повтор перезаписывает** `advice` / `adviceAt`) |
+| `POST` | `/tasks/{id}/spawn-board-from-advice` | Новая доска из текста совета; тело `{}` или `{"title":"..."}` → **201** с `board` и `tasksCreated` |
 
-`GET /api/v1/tasks?boardId=<UUID>&page=0&size=20&sort=createdAt,desc`
+Иерархия: FK `parent_task_id`, **ON DELETE CASCADE** (удаление родителя удаляет поддерево).
 
-Без `boardId` API вернёт **400** с пояснением в `detail`.
+---
 
-Ответ страницы: `content`, `page`, `size`, `totalElements`, `totalPages`, `last`. Элементы содержат **`parentTaskId`** (`null` для корневой задачи).
+## LM Studio и конфигурация
 
-Создание задачи:
+Интеграция — **`POST /chat/completions`** относительно `lmstudio.base-url` (часто `http://localhost:1234/v1`).
 
-`POST /api/v1/tasks` с `{"title":"…","boardId":"<UUID>","parentTaskId":"<UUID>"}` — поле **`parentTaskId`** опционально; при указании родитель должен быть на **той же доске**, иначе **400**.
+1. Запустите LM Studio, загрузите модель, включите **Local Server**.
+2. Укажите модель: **`LMSTUDIO_MODEL`** в `.env`, или `lmstudio.model` в `application.yml`, или переменная окружения.
 
-Пример дерева:
+Поведение и ограничения:
 
-```bash
-curl -s "http://localhost:8080/api/v1/boards/$DEFAULT_BOARD/tasks/tree"
-```
+- **`max_tokens`** — `lmstudio.max-tokens` (по умолчанию 2048).
+- **Таймауты** — `connect-timeout-seconds`, `timeout-seconds`.
+- **Размеры** — ограничения длины заголовка задачи, ответа модели и контекста совета (`max-advice-context-chars`, по умолчанию 4000 символов).
+- **Ошибки сети / LM Studio** — **502**, **503**, **504**; модель не задана — **400**.
+- **Rate limit** на `POST .../advice` — по умолчанию **30** запросов за **60** секунд на клиента; превышение — **429**.
 
-По задаче, для которой уже сохранён текст совета, можно создать **новую доску** и разложить совет на отдельные задачи (парсинг нумерованных строк и маркированных списков):
+### Переменные окружения (основные)
 
-`POST /api/v1/tasks/<ID>/spawn-board-from-advice` с телом `{}` или `{"title":"Название новой доски"}` (поле опционально).
+| Переменная | Назначение |
+|------------|------------|
+| `SERVER_PORT` | Порт HTTP (по умолчанию 8080) |
+| `SPRING_DATASOURCE_*` | JDBC URL, пользователь, пароль |
+| `LMSTUDIO_BASE_URL` | База OpenAI-compatible API |
+| `LMSTUDIO_MODEL` | Идентификатор модели в LM Studio (**важно для совета**) |
+| `LMSTUDIO_API_KEY` | Если локальный сервер требует ключ |
+| `LMSTUDIO_*_TIMEOUT_*`, `LMSTUDIO_MAX_*` | Таймауты и лимиты размеров |
+| `LMSTUDIO_MAX_ADVICE_CONTEXT_CHARS` | Лимит символов контекста в промпте |
+| `ADVICE_RATE_LIMIT_ENABLED` | Включить/выключить лимит на совет |
+| `ADVICE_RATE_LIMIT_REQUESTS` | Запросов за окно |
+| `ADVICE_RATE_LIMIT_WINDOW_SECONDS` | Размер окна в секундах |
 
-Ответ **201**: `board` (объект доски), `tasksCreated` (число созданных задач).
+Полный список см. в **`.env.example`** и в `application.yml`.
 
-## Контракт с LM Studio (совет по задаче)
+### Метрики (Prometheus)
 
-Интеграция — **OpenAI-compatible** `POST /chat/completions` относительно `lmstudio.base-url` (часто `http://localhost:1234/v1`).
+| Имя | Смысл |
+|-----|--------|
+| `taskloop.advice.lmstudio` | Таймер латентности вызова LM Studio |
+| `taskloop.advice.lmstudio.failures` | Счётчик ошибок |
+| `taskloop.advice.completed` | Успешные завершения совета |
 
-- **Что уходит в модель:** системный промпт + пользовательское сообщение. Для **`POST /tasks/{id}/advice`** сервер передаёт **название доски**, **цепочку заголовков предков** (от корня к родителю текущей задачи) и **текущую задачу**; учитывайте **`lmstudio.max-advice-context-chars`** (по умолчанию 4000) — при переполнении сначала укорачивается контекст сверху по цепочке.
-- **`max_tokens`:** `lmstudio.max-tokens` (по умолчанию **2048**; для «разговорчивых» моделей можно увеличить).
-- **Таймауты:** `lmstudio.connect-timeout-seconds` (подключение) и `lmstudio.timeout-seconds` (чтение ответа).
-- **Повторный запрос** `POST /api/v1/tasks/{id}/advice` **перезаписывает** сохранённый текст совета и время `adviceAt`.
-- **Ошибки:** при недоступности LM Studio или сетевых сбоях API возвращает, например, **502 Bad Gateway**, **503 Service Unavailable**, **504 Gateway Timeout**; при не заданной модели — **400**. Тело ошибки — JSON с полем `detail` (как и у других ошибок API).
-- **Rate limit:** только на `POST .../advice` — по умолчанию **30 запросов за 60 секунд** на IP (или первый адрес из `X-Forwarded-For`). При превышении — **429** и JSON с `detail`. Настройка: `advice-rate-limit.*` / переменные `ADVICE_RATE_LIMIT_*` в `.env`.
+---
 
-Метрики (Micrometer): `taskloop.advice.lmstudio` (таймер), `taskloop.advice.lmstudio.failures`, `taskloop.advice.completed`.
+## Примеры `curl`
 
-## Совет по задаче (LM Studio)
-
-Текст задачи отправляется на **ваш локальный** сервер inference (OpenAI-совместимый API). Убедитесь, что LM Studio запущена, модель загружена и включён **Local Server** (по умолчанию часто `http://localhost:1234/v1`).
-
-1. Укажите **имя модели** так же, как в LM Studio:
-   - в **`.env`**: `LMSTUDIO_MODEL=...`, или
-   - в `application.yml` (`lmstudio.model`), или
-   - переменная окружения ОС перед запуском.
-
-2. При ошибке **502/503/504** с текстом вроде «LM Studio недоступна» проверьте, что локальный API включён и порт совпадает с `lmstudio.base-url`.
-
-3. Повторный запрос совета **перезаписывает** сохранённый текст в БД.
-
-## Примеры
-
-Дефолтная доска (подставляйте свой хост/порт при необходимости):
-
-```bash
-DEFAULT_BOARD=00000000-0000-4000-8000-000000000001
-```
-
-Список досок:
+Подставьте хост/порт при необходимости.
 
 ```bash
+export DEFAULT_BOARD=00000000-0000-4000-8000-000000000001
+
 curl -s http://localhost:8080/api/v1/boards
-```
 
-Создать задачу на дефолтной доске:
-
-```bash
-curl -s -X POST http://localhost:8080/api/v1/tasks -H "Content-Type: application/json" \
+curl -s -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
   -d "{\"title\":\"Купить молоко\",\"boardId\":\"$DEFAULT_BOARD\"}"
-```
 
-Список задач на доске (первая страница):
-
-```bash
 curl -s "http://localhost:8080/api/v1/tasks?boardId=$DEFAULT_BOARD&page=0&size=20&sort=createdAt,desc"
-```
 
-Отметить выполненной (подставьте id из ответа):
+curl -s "http://localhost:8080/api/v1/boards/$DEFAULT_BOARD/tasks/tree"
 
-```bash
-curl -s -X PATCH http://localhost:8080/api/v1/tasks/<ID>/done -H "Content-Type: application/json" -d "{\"done\": true}"
-```
+curl -s -X PATCH http://localhost:8080/api/v1/tasks/<TASK_ID>/done \
+  -H "Content-Type: application/json" -d "{\"done\": true}"
 
-Проверка 404 для несуществующего id (PowerShell):
+curl -s -X POST http://localhost:8080/api/v1/tasks/<TASK_ID>/advice \
+  -H "Content-Type: application/json" -d "{}"
 
-```powershell
-(Invoke-WebRequest -Uri "http://localhost:8080/api/v1/tasks/00000000-0000-0000-0000-000000000000/done" -Method PATCH -ContentType "application/json" -Body '{"done":true}' -SkipHttpErrorCheck).StatusCode
-```
-
-Ожидается `404`.
-
-Запросить совет по задаче (подставьте id; нужна запущенная LM Studio и заданный `lmstudio.model`):
-
-```bash
-curl -s -X POST http://localhost:8080/api/v1/tasks/<ID>/advice -H "Content-Type: application/json" -d "{}"
-```
-
-Создать новую доску из текста совета (сначала должен быть непустой `advice` у задачи):
-
-```bash
-curl -s -X POST http://localhost:8080/api/v1/tasks/<ID>/spawn-board-from-advice \
+curl -s -X POST http://localhost:8080/api/v1/tasks/<TASK_ID>/spawn-board-from-advice \
   -H "Content-Type: application/json" -d "{}"
 ```
 
-Заголовок опционально: `X-Correlation-Id` — пробрасывается в ответ и в логи (MDC).
+Опционально для трассировки в логах:
 
-## CI
+```http
+X-Correlation-Id: <ваш-id>
+```
 
-Если CI настроен на уровень выше каталога приложения, workflow **`.github/workflows/ci.yml`** может запускать `./mvnw verify` в `taskloop-api` при изменениях в этом каталоге.
+Проверка **404** (PowerShell):
 
-## Заметки
+```powershell
+(Invoke-WebRequest -Uri "http://localhost:8080/api/v1/tasks/00000000-0000-0000-0000-000000000000/done" `
+  -Method PATCH -ContentType "application/json" -Body '{"done":true}' -SkipHttpErrorCheck).StatusCode
+```
 
-- `ddl-auto: validate` — схема только из Flyway.
-- UI — статический `static/index.html`: слева дерево досок и задач, справа работа с выбранной доской; **`POST /api/v1/tasks/{id}/advice`** передаёт контекст на сервере; при наличии совета — «Доска из совета».
-- Интеграция с LM Studio: пакет `com.example.tasklist.lmstudio`, настройки префикса `lmstudio.*` в `application.yml`.
+---
 
-## Отдельный репозиторий
+## Заметки для разработчиков
 
-Чтобы вынести только этот сервис в свой Git-репозиторий (например на GitHub): в каталоге `taskloop-api` выполните `git init`, добавьте remote (`git remote add origin <url>`), закоммитьте файлы и `git push`.
+- Схема БД только из **Flyway** (`ddl-auto: validate`).
+- Код LM Studio: пакет `com.example.tasklist.lmstudio`; настройки — префикс `lmstudio.*`.
+- Веб-UI — один файл **`static/index.html`**: дерево, выбор доски, работа с задачами и вызовы API советов.
+
+---
+
+## CI и отдельный репозиторий
+
+В монорепозитории workflow **`.github/workflows/ci.yml`** запускает `./mvnw verify` в каталоге **`taskloop-api`** при изменениях в нём.
+
+Чтобы вынести только этот сервис на GitHub: в `taskloop-api` выполните `git init`, `git remote add origin <url>`, закоммитьте и `git push`.
+
+---
+
+<div align="center">
+
+**TaskLoop** — структурируйте задачи, подключайте локальную модель, сохраняйте контроль над данными и контекстом.
+
+</div>
