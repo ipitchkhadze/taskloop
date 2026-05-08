@@ -1,0 +1,2 @@
+ALTER TABLE tasks
+    ADD COLUMN line_order INTEGER NULL;

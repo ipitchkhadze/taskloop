@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Задачи · Tasklist</title>
+  <style>
+    /* Notion-inspired: https://www.notion.com/ — warm neutrals, ui clarity, blue accent */
+    :root {
+      --bg: #f7f6f3;
+      --sidebar-bg: #fbfbfa;
+      --surface: #ffffff;
+      --ink: #37352f;
+      --muted: #787774;
+      --muted-light: #9b9a97;
+      --border: rgba(55, 53, 47, 0.09);
+      --border-strong: rgba(55, 53, 47, 0.16);
+      --hover: rgba(55, 53, 47, 0.08);
+      --hover-strong: rgba(55, 53, 47, 0.12);
+      --accent: #2383e2;
+      --accent-soft: rgba(35, 131, 226, 0.14);
+      --accent-focus: rgba(35, 131, 226, 0.45);
+      --done: #9b9a97;
+      --danger: #eb5757;
+      --shadow-sm: rgba(15, 15, 15, 0.04) 0px 1px 0px;
+      --radius: 3px;
+      --radius-lg: 6px;
+      --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
+        "Apple Color Emoji", "Noto Color Emoji", emoji, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app-shell {
+      display: flex;
+      min-height: 100vh;
+      align-items: stretch;
+    }
+
+    .sidebar {
+      width: 50vw;
+      flex: 0 0 50vw;
+      border-right: 1px solid var(--border);
+      background: var(--sidebar-bg);
+      padding: 0.75rem 0.65rem 2rem 0.85rem;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .sidebar-brand {
+      font-size: 0.875rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin: 0 0 0.65rem 0.35rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-title {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted-light);
+      margin: 0 0 0.5rem 0.35rem;
+    }
+
+    .tree-board {
+      margin-bottom: 0.5rem;
+    }
+
+    .tree-board-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.1rem;
+      margin-bottom: 0.1rem;
+    }
+
+    .tree-board-name {
+      flex: 1;
+      min-width: 0;
+      font-weight: 500;
+      font-size: 0.875rem;
+      cursor: pointer;
+      padding: 0.28rem 0.4rem;
+      border-radius: var(--radius);
+      color: var(--ink);
+    }
+
+    .tree-board-name:hover {
+      background: var(--hover);
+    }
+
+    .tree-board-name.active {
+      color: var(--ink);
+      background: var(--hover-strong);
+      font-weight: 600;
+    }
+
+    .tree-board-body.collapsed {
+      display: none;
+    }
+
+    .tree-toggle {
+      flex-shrink: 0;
+      width: 1.35rem;
+      height: 1.35rem;
+      margin-top: 0.18rem;
+      padding: 0;
+      border: none;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--muted-light);
+      font-size: 0.55rem;
+      line-height: 1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.15s ease, background 0.12s ease, color 0.12s ease;
+    }
+
+    .tree-toggle:hover {
+      background: var(--hover);
+      color: var(--ink);
+    }
+
+    .tree-toggle:focus-visible {
+      outline: 2px solid var(--accent-focus);
+      outline-offset: 1px;
+    }
+
+    .tree-toggle[aria-expanded="false"] {
+      transform: rotate(-90deg);
+    }
+
+    .tree-toggle-spacer {
+      flex-shrink: 0;
+      width: 1.35rem;
+      height: 1.35rem;
+      margin-top: 0.18rem;
+      pointer-events: none;
+    }
+
+    .tree-node-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.1rem;
+    }
+
+    .tree-node-row .tree-toggle,
+    .tree-node-row .tree-toggle-spacer {
+      margin-top: 0.1rem;
+    }
+
+    .tree-branch-children.collapsed {
+      display: none;
+    }
+
+    .tree-spawned-wrap {
+      margin-top: 0.2rem;
+    }
+
+    .tree-board-spawned {
+      margin-top: 0.35rem;
+      margin-bottom: 0.35rem;
+      margin-left: 0.15rem;
+      padding: 0.4rem 0.35rem 0.35rem 0.55rem;
+      border-left: 2px solid var(--border-strong);
+      border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+      background: rgba(55, 53, 47, 0.03);
+    }
+
+    .tree-board-spawned .tree-board-header {
+      margin-bottom: 0.12rem;
+    }
+
+    .tree-board-spawned .tree-board-name {
+      font-size: 0.8125rem;
+      font-weight: 500;
+    }
+
+    .tree-nested {
+      list-style: none;
+      margin: 0 0 0 0.25rem;
+      padding: 0;
+    }
+
+    .tree-nested .tree-nested {
+      margin-left: 0.35rem;
+      border-left: 1px solid var(--border);
+      padding-left: 0.35rem;
+    }
+
+    .tree-leaf {
+      display: block;
+      flex: 1;
+      min-width: 0;
+      font-size: 0.8125rem;
+      padding: 0.2rem 0.35rem;
+      margin: 0.04rem 0;
+      cursor: pointer;
+      border-radius: var(--radius);
+      word-break: break-word;
+      color: var(--ink);
+      font-weight: 400;
+    }
+
+    .tree-leaf:hover {
+      background: var(--hover);
+    }
+
+    .tree-leaf.active {
+      background: var(--accent-soft);
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    .main-panel {
+      flex: 1;
+      min-width: 0;
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .wrap {
+      max-width: 42rem;
+      margin: 0 auto;
+      padding: 2.75rem 2.5rem 4rem;
+    }
+
+    .board-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem 1rem;
+      margin-bottom: 1.25rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+      background: transparent;
+    }
+
+    .board-bar label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--muted);
+      flex: 1 1 12rem;
+      min-width: 0;
+    }
+
+    .board-bar select {
+      flex: 1;
+      min-width: 8rem;
+      padding: 0.4rem 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      font-family: var(--font);
+      background: var(--surface);
+      color: var(--ink);
+      box-shadow: 0 1px 2px rgba(15, 15, 15, 0.04);
+    }
+
+    .board-bar select:hover {
+      background: var(--bg);
+    }
+
+    .board-bar select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-soft);
+    }
+
+    .board-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .board-actions button {
+      padding: 0.35rem 0.65rem;
+      font-size: 0.8125rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-weight: 500;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--font);
+    }
+
+    .board-actions button:hover:not(:disabled) {
+      background: var(--hover);
+      color: var(--ink);
+    }
+
+    .board-actions button.danger:hover:not(:disabled) {
+      background: rgba(235, 87, 87, 0.08);
+      color: var(--danger);
+    }
+
+    .board-actions button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    header {
+      margin-bottom: 1.75rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin: 0 0 0.4rem;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+
+    header p {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--muted);
+      line-height: 1.55;
+      max-width: 36rem;
+    }
+
+    form.new-task {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      align-items: stretch;
+    }
+
+    form.new-task input[type="text"] {
+      flex: 1;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.9375rem;
+      font-family: var(--font);
+      background: rgba(242, 241, 238, 0.65);
+      color: var(--ink);
+      transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    form.new-task input[type="text"]::placeholder {
+      color: var(--muted-light);
+    }
+
+    form.new-task input[type="text"]:hover {
+      background: rgba(242, 241, 238, 0.9);
+    }
+
+    form.new-task input:focus {
+      outline: none;
+      background: var(--surface);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-soft);
+    }
+
+    form.new-task button {
+      padding: 0.55rem 1rem;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      font-weight: 500;
+      font-family: var(--font);
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: 0 1px 2px rgba(15, 15, 15, 0.08);
+    }
+
+    form.new-task button:hover {
+      filter: brightness(1.05);
+    }
+
+    form.new-task button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: 0 1px 3px rgba(15, 15, 15, 0.04);
+      overflow: hidden;
+    }
+
+    .list li {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.75rem;
+      align-items: start;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      border-left: 3px solid transparent;
+      transition: background 0.1s ease;
+    }
+
+    .list li:hover {
+      background: rgba(55, 53, 47, 0.03);
+    }
+
+    .list li.task-selected {
+      border-left-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .parent-hint {
+      font-size: 0.8125rem;
+      color: var(--muted);
+      margin: -0.35rem 0 0.85rem;
+      line-height: 1.45;
+    }
+
+    .row-actions {
+      margin-top: 0.65rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+    }
+
+    .btn-advice {
+      padding: 0.3rem 0.65rem;
+      font-size: 0.8125rem;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--ink);
+      cursor: pointer;
+      font-weight: 500;
+      font-family: var(--font);
+    }
+
+    .btn-advice:hover:not(:disabled) {
+      background: var(--hover);
+    }
+
+    .btn-spawn-board {
+      padding: 0.3rem 0.65rem;
+      font-size: 0.8125rem;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 500;
+      font-family: var(--font);
+    }
+
+    .btn-spawn-board:hover:not(:disabled) {
+      background: var(--hover);
+      color: var(--ink);
+    }
+
+    .btn-spawn-board:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn-advice:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .advice-block {
+      margin-top: 0.6rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: var(--radius-lg);
+      background: rgba(242, 241, 238, 0.85);
+      border: 1px solid var(--border);
+    }
+
+    .advice-label {
+      margin: 0 0 0.35rem;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .advice-text {
+      margin: 0;
+      font-size: 0.875rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: var(--font);
+      line-height: 1.55;
+      color: var(--ink);
+    }
+
+    .list li:last-child {
+      border-bottom: none;
+    }
+
+    .list input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      margin-top: 0.2rem;
+      border-radius: var(--radius);
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .meta {
+      min-width: 0;
+    }
+
+    .title {
+      font-size: 0.9375rem;
+      margin: 0;
+      word-break: break-word;
+      font-weight: 500;
+      line-height: 1.45;
+    }
+
+    .title.done {
+      text-decoration: line-through;
+      color: var(--done);
+      font-weight: 400;
+    }
+
+    .when {
+      font-size: 0.75rem;
+      color: var(--muted-light);
+      margin: 0.15rem 0 0;
+    }
+
+    .status {
+      font-size: 0.875rem;
+      margin-top: 1rem;
+      color: var(--muted);
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .empty {
+      padding: 2rem 1rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 52rem) {
+      .app-shell {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        max-height: min(38vh, 14rem);
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .wrap {
+        padding: 1.5rem 1.15rem 2.5rem;
+      }
+
+      header h1 {
+        font-size: 1.65rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Дерево досок и задач">
+      <p class="sidebar-brand">Tasklist</p>
+      <p class="sidebar-title">Навигация</p>
+      <div id="sidebar-tree"></div>
+    </aside>
+    <main class="main-panel">
+      <div class="wrap">
+    <header>
+      <h1>Задачи</h1>
+      <p>Доски и дерево задач слева · совет LM Studio с учётом доски и родительских задач («Совет»).</p>
+    </header>
+
+    <div class="board-bar">
+      <label>
+        Доска
+        <select id="board-select" aria-label="Текущая доска"></select>
+      </label>
+      <div class="board-actions">
+        <button type="button" id="btn-new-board">Новая доска</button>
+        <button type="button" id="btn-rename-board">Переименовать</button>
+        <button type="button" class="danger" id="btn-delete-board">Удалить</button>
+      </div>
+    </div>
+
+    <form class="new-task" id="form-new">
+      <p class="parent-hint" id="parent-hint" hidden></p>
+      <input
+        type="text"
+        name="title"
+        placeholder="Новая задача…"
+        maxlength="200"
+        autocomplete="off"
+        required
+      />
+      <button type="submit">Добавить</button>
+    </form>
+
+    <ul class="list" id="tasks" aria-live="polite"></ul>
+    <p class="status" id="status" hidden></p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const API = "/api/v1/tasks";
+    const BOARDS_API = "/api/v1/boards";
+    const STORAGE_KEY = "tasklist.boardId";
+    const STORAGE_TASK_KEY = "tasklist.selectedTaskId";
+    const NAV_COLLAPSE_KEY = "tasklist.navCollapse";
+    const DEFAULT_BOARD_ID = "00000000-0000-4000-8000-000000000001";
+
+    /** @type {{ boards: any[], treeMap: Record<string, any[]> }} */
+    let sidebarCache = { boards: [], treeMap: {} };
+
+    const listEl = document.getElementById("tasks");
+    const statusEl = document.getElementById("status");
+    const formNew = document.getElementById("form-new");
+    const parentHintEl = document.getElementById("parent-hint");
+    const boardSelect = document.getElementById("board-select");
+    const sidebarTreeEl = document.getElementById("sidebar-tree");
+    const btnNewBoard = document.getElementById("btn-new-board");
+    const btnRenameBoard = document.getElementById("btn-rename-board");
+    const btnDeleteBoard = document.getElementById("btn-delete-board");
+
+    /** @type {string|null} */
+    let selectedTaskId = localStorage.getItem(STORAGE_TASK_KEY);
+
+    function showStatus(text, isError) {
+      statusEl.textContent = text;
+      statusEl.hidden = !text;
+      statusEl.classList.toggle("error", !!isError);
+    }
+
+    function currentBoardId() {
+      return boardSelect.value || DEFAULT_BOARD_ID;
+    }
+
+    function updateDeleteButtonState() {
+      btnDeleteBoard.disabled = currentBoardId() === DEFAULT_BOARD_ID;
+    }
+
+    function updateParentHint() {
+      if (!selectedTaskId) {
+        parentHintEl.hidden = true;
+        parentHintEl.textContent = "";
+        return;
+      }
+      parentHintEl.hidden = false;
+      parentHintEl.textContent =
+        "Новая задача будет подзадачей выбранной в дереве (родительский контекст для «Совета» на сервере).";
+    }
+
+    function getNavCollapse() {
+      try {
+        return JSON.parse(localStorage.getItem(NAV_COLLAPSE_KEY) || "{}");
+      } catch {
+        return {};
+      }
+    }
+
+    function saveNavCollapse(state) {
+      localStorage.setItem(NAV_COLLAPSE_KEY, JSON.stringify(state));
+    }
+
+    function branchPathToTask(nodes, taskId) {
+      const prefix = findAncestorIdsForTask(nodes, taskId);
+      if (prefix === null) return null;
+      return [...prefix, taskId];
+    }
+
+    /** Раскрыть родительскую доску и ветки до задачи-источника (доска из совета). */
+    function expandNavToShowSpawnedBoard(boards, treeMap, boardId) {
+      const b = boards.find((x) => x.id === boardId);
+      if (!b || !b.sourceTaskId || !b.sourceBoardId) return;
+      const nav = getNavCollapse();
+      nav.boardCollapsed ??= {};
+      nav.branchCollapsed ??= {};
+      delete nav.boardCollapsed[b.sourceBoardId];
+      delete nav.boardCollapsed[boardId];
+      const tree = treeMap[b.sourceBoardId];
+      if (tree) {
+        const path = branchPathToTask(tree, b.sourceTaskId);
+        if (path) path.forEach((id) => delete nav.branchCollapsed[id]);
+      }
+      saveNavCollapse(nav);
+    }
+
+    /** @returns {string[]|null} ids of ancestors from root toward parent of taskId */
+    function findAncestorIdsForTask(nodes, taskId) {
+      for (const n of nodes) {
+        if (n.id === taskId) return [];
+        const kids = n.children || [];
+        if (kids.length) {
+          const sub = findAncestorIdsForTask(kids, taskId);
+          if (sub !== null) return [n.id, ...sub];
+        }
+      }
+      return null;
+    }
+
+    function expandNavPathToTask(treeMap, boardId, taskId) {
+      const nav = getNavCollapse();
+      nav.boardCollapsed ??= {};
+      nav.branchCollapsed ??= {};
+      delete nav.boardCollapsed[boardId];
+      if (!taskId) {
+        saveNavCollapse(nav);
+        return;
+      }
+      const tree = treeMap[boardId];
+      if (!tree) {
+        saveNavCollapse(nav);
+        return;
+      }
+      const path = branchPathToTask(tree, taskId);
+      if (path === null) {
+        saveNavCollapse(nav);
+        return;
+      }
+      path.forEach((id) => delete nav.branchCollapsed[id]);
+      saveNavCollapse(nav);
+    }
+
+    function toggleBoardCollapse(button) {
+      const wrap = button.closest(".tree-board");
+      const bid = wrap.getAttribute("data-board-id");
+      const body = wrap.querySelector(".tree-board-body");
+      const expanded = button.getAttribute("aria-expanded") === "true";
+      const next = !expanded;
+      button.setAttribute("aria-expanded", String(next));
+      body.classList.toggle("collapsed", !next);
+      const nav = getNavCollapse();
+      nav.boardCollapsed ??= {};
+      if (!next) nav.boardCollapsed[bid] = true;
+      else delete nav.boardCollapsed[bid];
+      saveNavCollapse(nav);
+    }
+
+    function toggleBranchCollapse(button) {
+      const tid = button.getAttribute("data-task-toggle");
+      const controls = button.getAttribute("aria-controls");
+      const body = document.getElementById(controls);
+      if (!body) return;
+      const expanded = button.getAttribute("aria-expanded") === "true";
+      const next = !expanded;
+      button.setAttribute("aria-expanded", String(next));
+      body.classList.toggle("collapsed", !next);
+      const nav = getNavCollapse();
+      nav.branchCollapsed ??= {};
+      if (!next) nav.branchCollapsed[tid] = true;
+      else delete nav.branchCollapsed[tid];
+      saveNavCollapse(nav);
+    }
+
+    function wireSidebarNavToggles() {
+      sidebarTreeEl.querySelectorAll(".tree-toggle-board").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          toggleBoardCollapse(btn);
+        });
+      });
+      sidebarTreeEl.querySelectorAll(".tree-toggle-branch").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          toggleBranchCollapse(btn);
+        });
+      });
+    }
+
+    function refreshSidebarFromCache() {
+      if (!sidebarCache.boards.length) return;
+      expandNavToShowSpawnedBoard(sidebarCache.boards, sidebarCache.treeMap, currentBoardId());
+      expandNavPathToTask(sidebarCache.treeMap, currentBoardId(), selectedTaskId);
+      renderSidebar(sidebarCache.boards, sidebarCache.treeMap);
+    }
+
+    async function loadBoards() {
+      const res = await fetch(BOARDS_API);
+      if (!res.ok) throw new Error("Не удалось загрузить доски");
+      const boards = await res.json();
+      const saved = localStorage.getItem(STORAGE_KEY);
+      boardSelect.innerHTML = boards
+        .map((b) => `<option value="${b.id}">${escapeHtml(b.title)}</option>`)
+        .join("");
+      const ids = [...boardSelect.options].map((o) => o.value);
+      if (saved && ids.includes(saved)) boardSelect.value = saved;
+      else if (ids.includes(DEFAULT_BOARD_ID)) boardSelect.value = DEFAULT_BOARD_ID;
+      else if (ids.length) boardSelect.selectedIndex = 0;
+      updateDeleteButtonState();
+      return boards;
+    }
+
+    function buildSpawnedByTaskId(boards) {
+      /** @type {Record<string, any[]>} */
+      const map = {};
+      for (const b of boards) {
+        if (b.sourceTaskId) {
+          const k = b.sourceTaskId;
+          if (!map[k]) map[k] = [];
+          map[k].push(b);
+        }
+      }
+      return map;
+    }
+
+    function htmlBoardBlock(b, nav, treeMap, spawnedByTask, nested) {
+      const tree = treeMap[b.id] || [];
+      const hasTasks = tree.length > 0;
+      const boardExpanded = nav.boardCollapsed[b.id] !== true;
+      const bodyId = `sidebar-board-body-${b.id}`;
+      const toggleBoard = hasTasks
+        ? `<button type="button" class="tree-toggle tree-toggle-board" aria-expanded="${boardExpanded}" aria-controls="${bodyId}" aria-label="Задачи доски: развернуть или свернуть">▾</button>`
+        : `<span class="tree-toggle-spacer" aria-hidden="true"></span>`;
+      const inner = hasTasks ? htmlTaskBranch(tree, b.id, nav, spawnedByTask, treeMap) : "";
+      const extraClass = nested ? " tree-board-spawned" : "";
+      return `<div class="tree-board${extraClass}" data-board-id="${b.id}">
+            <div class="tree-board-header">
+              ${toggleBoard}
+              <div class="tree-board-name" data-board-only="${b.id}">${escapeHtml(b.title)}</div>
+            </div>
+            <div id="${bodyId}" class="tree-board-body${boardExpanded ? "" : " collapsed"}">${inner}</div>
+          </div>`;
+    }
+
+    function htmlTaskBranch(nodes, boardId, nav, spawnedByTask, treeMap) {
+      if (!nodes || !nodes.length) return "";
+      const bc = nav.branchCollapsed || {};
+      return `<ul class="tree-nested">${nodes
+        .map((n) => {
+          const kids = n.children || [];
+          const hasKids = kids.length > 0;
+          const spawnedHere = spawnedByTask[n.id] || [];
+          const hasSpawned = spawnedHere.length > 0;
+          const hasBranch = hasKids || hasSpawned;
+          const expanded = bc[n.id] !== true;
+          const bodyId = `sidebar-branch-${n.id}`;
+          let branchInner = "";
+          if (hasKids) {
+            branchInner += htmlTaskBranch(kids, boardId, nav, spawnedByTask, treeMap);
+          }
+          if (hasSpawned) {
+            branchInner += `<div class="tree-spawned-wrap">${spawnedHere
+              .map((sb) => htmlBoardBlock(sb, nav, treeMap, spawnedByTask, true))
+              .join("")}</div>`;
+          }
+          const branchHtml = hasBranch
+            ? `<div id="${bodyId}" class="tree-branch-children${expanded ? "" : " collapsed"}">${branchInner}</div>`
+            : "";
+          const toggleBtn = hasBranch
+            ? `<button type="button" class="tree-toggle tree-toggle-branch" aria-expanded="${expanded}" aria-controls="${bodyId}" data-task-toggle="${n.id}" aria-label="Подзадачи: развернуть или свернуть">▾</button>`
+            : `<span class="tree-toggle-spacer" aria-hidden="true"></span>`;
+          return `
+        <li class="tree-node">
+          <div class="tree-node-row">
+            ${toggleBtn}
+            <span class="tree-leaf" data-board="${boardId}" data-task="${n.id}">${escapeHtml(n.title)}</span>
+          </div>
+          ${branchHtml}
+        </li>`;
+        })
+        .join("")}</ul>`;
+    }
+
+    function renderSidebar(boards, treeMap) {
+      const nav = getNavCollapse();
+      nav.boardCollapsed ??= {};
+      nav.branchCollapsed ??= {};
+
+      const spawnedByTask = buildSpawnedByTaskId(boards);
+      const rootBoards = boards.filter((b) => !b.sourceTaskId);
+
+      sidebarTreeEl.innerHTML = rootBoards.map((b) => htmlBoardBlock(b, nav, treeMap, spawnedByTask, false)).join("");
+
+      sidebarTreeEl.querySelectorAll(".tree-board-name").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          selectBoardOnly(btn.getAttribute("data-board-only"));
+        });
+      });
+      sidebarTreeEl.querySelectorAll(".tree-leaf").forEach((leaf) => {
+        leaf.addEventListener("click", (e) => {
+          e.stopPropagation();
+          selectTask(leaf.getAttribute("data-board"), leaf.getAttribute("data-task"));
+        });
+      });
+      wireSidebarNavToggles();
+      updateSidebarSelectionClasses();
+    }
+
+    async function loadSidebarTrees(boards) {
+      const entries = await Promise.all(
+        boards.map(async (b) => {
+          const r = await fetch(`${BOARDS_API}/${encodeURIComponent(b.id)}/tasks/tree`);
+          if (!r.ok) return [b.id, []];
+          const tree = await r.json();
+          return [b.id, tree];
+        })
+      );
+      const treeMap = Object.fromEntries(entries);
+      sidebarCache.boards = boards;
+      sidebarCache.treeMap = treeMap;
+      expandNavToShowSpawnedBoard(boards, treeMap, currentBoardId());
+      expandNavPathToTask(treeMap, currentBoardId(), selectedTaskId);
+      renderSidebar(boards, treeMap);
+    }
+
+    function selectBoardOnly(bid) {
+      selectedTaskId = null;
+      localStorage.removeItem(STORAGE_TASK_KEY);
+      boardSelect.value = bid;
+      localStorage.setItem(STORAGE_KEY, bid);
+      const nav = getNavCollapse();
+      nav.boardCollapsed ??= {};
+      delete nav.boardCollapsed[bid];
+      saveNavCollapse(nav);
+      updateDeleteButtonState();
+      updateParentHint();
+      loadTasks();
+      refreshSidebarFromCache();
+    }
+
+    function selectTask(bid, tid) {
+      selectedTaskId = tid;
+      localStorage.setItem(STORAGE_TASK_KEY, tid);
+      boardSelect.value = bid;
+      localStorage.setItem(STORAGE_KEY, bid);
+      updateDeleteButtonState();
+      updateParentHint();
+      expandNavToShowSpawnedBoard(sidebarCache.boards, sidebarCache.treeMap, bid);
+      expandNavPathToTask(sidebarCache.treeMap, bid, tid);
+      renderSidebar(sidebarCache.boards, sidebarCache.treeMap);
+      loadTasks();
+    }
+
+    function updateSidebarSelectionClasses() {
+      sidebarTreeEl.querySelectorAll(".tree-leaf").forEach((el) => {
+        el.classList.toggle("active", el.getAttribute("data-task") === selectedTaskId);
+      });
+      sidebarTreeEl.querySelectorAll(".tree-board-name").forEach((el) => {
+        const bid = el.getAttribute("data-board-only");
+        el.classList.toggle("active", bid === currentBoardId() && !selectedTaskId);
+      });
+    }
+
+    function taskDepth(id, byId) {
+      let d = 0;
+      let t = byId.get(id);
+      while (t && t.parentTaskId) {
+        d++;
+        t = byId.get(t.parentTaskId);
+      }
+      return d;
+    }
+
+    async function loadTasks() {
+      showStatus("");
+      const bid = encodeURIComponent(currentBoardId());
+      try {
+        const res = await fetch(
+          `${API}?boardId=${bid}&page=0&size=100&sort=createdAt,desc`
+        );
+        if (!res.ok) throw new Error("Не удалось загрузить список");
+        const data = await res.json();
+        const items = Array.isArray(data) ? data : data.content ?? [];
+        render(items);
+      } catch (e) {
+        showStatus(e.message || "Ошибка сети", true);
+        listEl.innerHTML = "";
+      }
+    }
+
+    function render(items) {
+      updateParentHint();
+      if (!items.length) {
+        listEl.innerHTML =
+          '<li class="empty">Пока нет задач на этой доске — добавьте первую выше.</li>';
+        return;
+      }
+      const byId = new Map(items.map((t) => [t.id, t]));
+      listEl.innerHTML = items
+        .map((t) => {
+          const depth = taskDepth(t.id, byId);
+          const pad = 0.35 + depth * 0.65;
+          const sel = selectedTaskId && t.id === selectedTaskId ? " task-selected" : "";
+          return `
+        <li data-id="${t.id}" class="${sel.trim()}" style="padding-left:${pad}rem">
+          <input type="checkbox" ${t.done ? "checked" : ""} aria-label="Отметить как выполненную" />
+          <div class="meta">
+            <p class="title ${t.done ? "done" : ""}">${escapeHtml(t.title)}</p>
+            <p class="when">${formatWhen(t.createdAt)}</p>
+            ${t.advice ? `<div class="advice-block"><p class="advice-label">Совет модели</p><pre class="advice-text">${escapeHtml(t.advice)}</pre></div>` : ""}
+            <div class="row-actions">
+              <button type="button" class="btn-advice">Совет</button>
+              ${t.advice ? `<button type="button" class="btn-spawn-board">Доска из совета</button>` : ""}
+            </div>
+          </div>
+        </li>`;
+        })
+        .join("");
+
+      const rowSel = listEl.querySelector(`li[data-id="${selectedTaskId}"]`);
+      if (rowSel) rowSel.scrollIntoView({ block: "nearest", behavior: "smooth" });
+
+      listEl.querySelectorAll("li[data-id]").forEach((row) => {
+        const id = row.getAttribute("data-id");
+        const cb = row.querySelector('input[type="checkbox"]');
+        cb.addEventListener("change", () => patchDone(id, cb.checked, row));
+        const adviceBtn = row.querySelector(".btn-advice");
+        adviceBtn.addEventListener("click", () => fetchAdvice(id, adviceBtn));
+        const spawnBtn = row.querySelector(".btn-spawn-board");
+        if (spawnBtn) spawnBtn.addEventListener("click", () => spawnBoardFromAdvice(id, spawnBtn));
+      });
+    }
+
+    async function fetchAdvice(id, btn) {
+      showStatus("");
+      btn.disabled = true;
+      try {
+        const res = await fetch(`${API}/${encodeURIComponent(id)}/advice`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+        let detail = "Не удалось получить совет";
+        if (!res.ok) {
+          try {
+            const j = await res.json();
+            if (j.detail) detail = j.detail;
+          } catch (_) {}
+          throw new Error(detail);
+        }
+        await loadTasks();
+        const boards = await fetch(BOARDS_API).then((r) => r.json());
+        await loadSidebarTrees(boards);
+      } catch (e) {
+        showStatus(e.message || "Ошибка", true);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function spawnBoardFromAdvice(id, btn) {
+      showStatus("");
+      btn.disabled = true;
+      try {
+        const res = await fetch(
+          `${API}/${encodeURIComponent(id)}/spawn-board-from-advice`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+          }
+        );
+        let detail = "Не удалось создать доску из совета";
+        if (!res.ok) {
+          try {
+            const j = await res.json();
+            if (j.detail) detail = j.detail;
+          } catch (_) {}
+          throw new Error(detail);
+        }
+        const data = await res.json();
+        if (data.board && data.board.id) {
+          localStorage.setItem(STORAGE_KEY, data.board.id);
+        }
+        selectedTaskId = null;
+        localStorage.removeItem(STORAGE_TASK_KEY);
+        const boards = await loadBoards();
+        await loadSidebarTrees(boards);
+        await loadTasks();
+      } catch (e) {
+        showStatus(e.message || "Ошибка", true);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement("div");
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function formatWhen(iso) {
+      try {
+        return new Date(iso).toLocaleString("ru-RU", {
+          dateStyle: "short",
+          timeStyle: "short",
+        });
+      } catch {
+        return iso;
+      }
+    }
+
+    async function patchDone(id, done, row) {
+      showStatus("");
+      const cb = row.querySelector('input[type="checkbox"]');
+      cb.disabled = true;
+      try {
+        const res = await fetch(`${API}/${encodeURIComponent(id)}/done`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ done }),
+        });
+        if (!res.ok) throw new Error("Не удалось обновить задачу");
+        await loadTasks();
+        const boards = await fetch(BOARDS_API).then((r) => r.json());
+        await loadSidebarTrees(boards);
+      } catch (e) {
+        showStatus(e.message || "Ошибка", true);
+        cb.checked = !done;
+      } finally {
+        cb.disabled = false;
+      }
+    }
+
+    boardSelect.addEventListener("change", () => {
+      localStorage.setItem(STORAGE_KEY, boardSelect.value);
+      selectedTaskId = null;
+      localStorage.removeItem(STORAGE_TASK_KEY);
+      updateDeleteButtonState();
+      updateParentHint();
+      const nav = getNavCollapse();
+      nav.boardCollapsed ??= {};
+      delete nav.boardCollapsed[boardSelect.value];
+      saveNavCollapse(nav);
+      refreshSidebarFromCache();
+      loadTasks();
+    });
+
+    btnNewBoard.addEventListener("click", async () => {
+      const title = window.prompt("Название новой доски:");
+      if (title == null) return;
+      const t = title.trim();
+      if (!t) {
+        showStatus("Название не может быть пустым", true);
+        return;
+      }
+      showStatus("");
+      try {
+        const res = await fetch(BOARDS_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: t }),
+        });
+        let detail = "Не удалось создать доску";
+        if (!res.ok) {
+          try {
+            const j = await res.json();
+            if (j.detail) detail = j.detail;
+          } catch (_) {}
+          throw new Error(detail);
+        }
+        const board = await res.json();
+        localStorage.setItem(STORAGE_KEY, board.id);
+        selectedTaskId = null;
+        localStorage.removeItem(STORAGE_TASK_KEY);
+        const boards = await loadBoards();
+        await loadSidebarTrees(boards);
+        await loadTasks();
+      } catch (e) {
+        showStatus(e.message || "Ошибка", true);
+      }
+    });
+
+    btnRenameBoard.addEventListener("click", async () => {
+      const title = window.prompt("Новое название доски:");
+      if (title == null) return;
+      const t = title.trim();
+      if (!t) {
+        showStatus("Название не может быть пустым", true);
+        return;
+      }
+      showStatus("");
+      const id = currentBoardId();
+      try {
+        const res = await fetch(`${BOARDS_API}/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: t }),
+        });
+        let detail = "Не удалось переименовать доску";
+        if (!res.ok) {
+          try {
+            const j = await res.json();
+            if (j.detail) detail = j.detail;
+          } catch (_) {}
+          throw new Error(detail);
+        }
+        const boards = await loadBoards();
+        await loadSidebarTrees(boards);
+        await loadTasks();
+      } catch (e) {
+        showStatus(e.message || "Ошибка", true);
+      }
+    });
+
+    btnDeleteBoard.addEventListener("click", async () => {
+      const id = currentBoardId();
+      if (id === DEFAULT_BOARD_ID) return;
+      if (!window.confirm("Удалить эту доску и все её задачи?")) return;
+      showStatus("");
+      try {
+        const res = await fetch(`${BOARDS_API}/${encodeURIComponent(id)}`, {
+          method: "DELETE",
+        });
+        let detail = "Не удалось удалить доску";
+        if (res.status === 409) {
+          try {
+            const j = await res.json();
+            if (j.detail) detail = j.detail;
+          } catch (_) {}
+          throw new Error(detail);
+        }
+        if (!res.ok && res.status !== 204) {
+          try {
+            const j = await res.json();
+            if (j.detail) detail = j.detail;
+          } catch (_) {}
+          throw new Error(detail);
+        }
+        localStorage.setItem(STORAGE_KEY, DEFAULT_BOARD_ID);
+        selectedTaskId = null;
+        localStorage.removeItem(STORAGE_TASK_KEY);
+        const boards = await loadBoards();
+        await loadSidebarTrees(boards);
+        await loadTasks();
+      } catch (e) {
+        showStatus(e.message || "Ошибка", true);
+      }
+    });
+
+    formNew.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const input = formNew.querySelector('input[name="title"]');
+      const title = input.value.trim();
+      if (!title) return;
+      const btn = formNew.querySelector("button");
+      btn.disabled = true;
+      showStatus("");
+      try {
+        const payload = { title, boardId: currentBoardId() };
+        if (selectedTaskId) payload.parentTaskId = selectedTaskId;
+        const res = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("Не удалось создать задачу");
+        input.value = "";
+        await loadTasks();
+        const boards = await fetch(BOARDS_API).then((r) => r.json());
+        await loadSidebarTrees(boards);
+      } catch (e) {
+        showStatus(e.message || "Ошибка", true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    (async function init() {
+      try {
+        const boards = await loadBoards();
+        await loadSidebarTrees(boards);
+        await loadTasks();
+        if (
+          selectedTaskId &&
+          !listEl.querySelector(`li[data-id="${selectedTaskId}"]`)
+        ) {
+          selectedTaskId = null;
+          localStorage.removeItem(STORAGE_TASK_KEY);
+          updateParentHint();
+          updateSidebarSelectionClasses();
+        }
+      } catch (e) {
+        showStatus(e.message || "Ошибка загрузки досок", true);
+      }
+    })();
+  </script>
+</body>
+</html>
