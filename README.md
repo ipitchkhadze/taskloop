@@ -245,14 +245,6 @@ X-Correlation-Id: <ваш-id>
 
 ---
 
-## CI и отдельный репозиторий
-
-В монорепозитории workflow **`.github/workflows/ci.yml`** запускает `./mvnw verify` в каталоге **`taskloop-api`** при изменениях в нём.
-
-Чтобы вынести только этот сервис на GitHub: в `taskloop-api` выполните `git init`, `git remote add origin <url>`, закоммитьте и `git push`.
-
----
-
 <div align="center">
 
 **TaskLoop** — структурируйте задачи, подключайте локальную модель, сохраняйте контроль над данными и контекстом.
