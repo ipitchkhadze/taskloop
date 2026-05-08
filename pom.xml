@@ -5,10 +5,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.example</groupId>
-    <artifactId>tasklist</artifactId>
+    <artifactId>taskloop</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>tasklist</name>
-    <description>Pet Tasklist API (Spring Boot + PostgreSQL + Flyway)</description>
+    <name>TaskLoop</name>
+    <description>TaskLoop API — Spring Boot + PostgreSQL + Flyway</description>
 
     <properties>
         <java.version>17</java.version>

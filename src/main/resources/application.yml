@@ -1,6 +1,6 @@
 spring:
   application:
-    name: tasklist-api
+    name: taskloop
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/taskdb}
     username: ${SPRING_DATASOURCE_USERNAME:task}

@@ -9,11 +9,11 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 
 @SpringBootApplication
 @EnableConfigurationProperties(AdviceRateLimitProperties.class)
-public class TasklistApplication {
+public class TaskLoopApplication {
 
     public static void main(String[] args) {
         loadDotenv();
-        SpringApplication.run(TasklistApplication.class, args);
+        SpringApplication.run(TaskLoopApplication.class, args);
     }
 
     /**

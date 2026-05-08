@@ -9,12 +9,12 @@ import org.springframework.context.annotation.Configuration;
 public class OpenApiConfig {
 
     @Bean
-    public OpenAPI tasklistOpenAPI() {
+    public OpenAPI taskLoopOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Tasklist API")
+                        .title("TaskLoop API")
                         .version("v1")
                         .description(
-                                "Учебный REST-сервис задач с советом через локальный OpenAI-совместимый API (LM Studio)."));
+                                "TaskLoop: REST-сервис досок и задач с советом через локальный OpenAI-совместимый API (LM Studio)."));
     }
 }

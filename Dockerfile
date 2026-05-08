@@ -11,7 +11,7 @@ FROM eclipse-temurin:17-jre-alpine
 RUN apk add --no-cache curl
 WORKDIR /app
 RUN addgroup -S spring && adduser -S spring -G spring
-COPY --from=build /workspace/target/tasklist-0.0.1-SNAPSHOT.jar app.jar
+COPY --from=build /workspace/target/taskloop-0.0.1-SNAPSHOT.jar app.jar
 USER spring:spring
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

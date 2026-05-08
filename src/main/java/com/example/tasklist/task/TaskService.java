@@ -76,7 +76,7 @@ public class TaskService {
         this.boardRepository = boardRepository;
         this.lmStudioClient = lmStudioClient;
         this.adviceLineParser = adviceLineParser;
-        this.adviceCompleted = Counter.builder("tasklist.advice.completed")
+        this.adviceCompleted = Counter.builder("taskloop.advice.completed")
                 .description("Task advice successfully persisted after LM Studio call")
                 .register(meterRegistry);
     }

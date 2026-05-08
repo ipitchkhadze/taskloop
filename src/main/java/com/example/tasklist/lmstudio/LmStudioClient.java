@@ -70,10 +70,10 @@ public class LmStudioClient {
         this.restClient = restClient;
         this.props = props;
         this.objectMapper = objectMapper;
-        this.adviceLatency = Timer.builder("tasklist.advice.lmstudio")
+        this.adviceLatency = Timer.builder("taskloop.advice.lmstudio")
                 .description("Latency of LM Studio chat completions for task advice")
                 .register(meterRegistry);
-        this.adviceFailures = Counter.builder("tasklist.advice.lmstudio.failures")
+        this.adviceFailures = Counter.builder("taskloop.advice.lmstudio.failures")
                 .description("Failed LM Studio advice calls")
                 .register(meterRegistry);
     }

@@ -1,4 +1,4 @@
-# Tasklist API (pet)
+# TaskLoop
 
 Учебный REST-сервис: **Spring Boot 3.3** + **PostgreSQL 16** + **Flyway**. Требуется **JDK 17+** для сборки (проверено с 17). Цель — типовой «скелет» CRUD с заделом под эксплуатацию: **OpenAPI**, **Actuator + Prometheus**, **Docker**, **лимиты и метрики** для вызова локальной LM Studio.
 
@@ -18,11 +18,11 @@
 
 3. В браузере: [http://localhost:8080/](http://localhost:8080/) — **дерево досок и задач слева**, выбор доски, список с отступами по вложенности, добавление **корневой** или **подзадачи** (задача выбрана в дереве), «Совет» с серверным контекстом доски и цепочки родителей, «Доска из совета».
 
-Скопируйте **`.env.example` → `.env`** в каталоге `pet-tasklist-api` и заполните хотя бы `LMSTUDIO_MODEL` (остальное можно не трогать для значений по умолчанию). При старте приложения переменные из `.env` попадают в конфигурацию Spring; **реальные переменные окружения ОС имеют приоритет** над `.env`.
+Скопируйте **`.env.example` → `.env`** в каталоге `taskloop-api` и заполните хотя бы `LMSTUDIO_MODEL` (остальное можно не трогать для значений по умолчанию). При старте приложения переменные из `.env` попадают в конфигурацию Spring; **реальные переменные окружения ОС имеют приоритет** над `.env`.
 
 ### Вариант 2: приложение + БД в Docker
 
-Из каталога `pet-tasklist-api`:
+Из каталога `taskloop-api`:
 
 ```bash
 docker compose up -d --build
@@ -109,7 +109,7 @@ curl -s "http://localhost:8080/api/v1/boards/$DEFAULT_BOARD/tasks/tree"
 - **Ошибки:** при недоступности LM Studio или сетевых сбоях API возвращает, например, **502 Bad Gateway**, **503 Service Unavailable**, **504 Gateway Timeout**; при не заданной модели — **400**. Тело ошибки — JSON с полем `detail` (как и у других ошибок API).
 - **Rate limit:** только на `POST .../advice` — по умолчанию **30 запросов за 60 секунд** на IP (или первый адрес из `X-Forwarded-For`). При превышении — **429** и JSON с `detail`. Настройка: `advice-rate-limit.*` / переменные `ADVICE_RATE_LIMIT_*` в `.env`.
 
-Метрики (Micrometer): `tasklist.advice.lmstudio` (таймер), `tasklist.advice.lmstudio.failures`, `tasklist.advice.completed`.
+Метрики (Micrometer): `taskloop.advice.lmstudio` (таймер), `taskloop.advice.lmstudio.failures`, `taskloop.advice.completed`.
 
 ## Совет по задаче (LM Studio)
 
@@ -182,7 +182,7 @@ curl -s -X POST http://localhost:8080/api/v1/tasks/<ID>/spawn-board-from-advice 
 
 ## CI
 
-Если CI настроен на уровень выше каталога приложения, workflow **`.github/workflows/ci.yml`** может запускать `./mvnw verify` в `pet-tasklist-api` при изменениях в этом каталоге.
+Если CI настроен на уровень выше каталога приложения, workflow **`.github/workflows/ci.yml`** может запускать `./mvnw verify` в `taskloop-api` при изменениях в этом каталоге.
 
 ## Заметки
 
@@ -192,4 +192,4 @@ curl -s -X POST http://localhost:8080/api/v1/tasks/<ID>/spawn-board-from-advice 
 
 ## Отдельный репозиторий
 
-Чтобы вынести только этот сервис в свой Git-репозиторий (например на GitHub): в каталоге `pet-tasklist-api` выполните `git init`, добавьте remote (`git remote add origin <url>`), закоммитьте файлы и `git push`.
+Чтобы вынести только этот сервис в свой Git-репозиторий (например на GitHub): в каталоге `taskloop-api` выполните `git init`, добавьте remote (`git remote add origin <url>`), закоммитьте файлы и `git push`.
